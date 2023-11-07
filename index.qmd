@@ -42,14 +42,9 @@ format:
 
 This project works with data from [Snap's Political Ads Library](#0). Specifically, it pulls in the political advertising campaigns from 2020. This year was chosen because of the U.S. presidential election which occurred in November. In this analysis, I restrict the analysis to *only* U.S.-based advertisements which targeted particular states. The goal is to hone in on particular patterns of targeting across both **time** and **target audience**.
 
-## Loading Libraries
-
-```{r}
+```{r include = FALSE}
 library(tidyverse)
 library(lubridate)
-library(showtext)
-  font_add_google("Nunito Sans", "nunito")
-  showtext_auto()
 ```
 
 ## Data
