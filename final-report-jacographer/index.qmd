@@ -1,0 +1,269 @@
+---
+title: "A&S 500 Final Project"
+author:
+  - name: "Jacob Saindon" #splitting should work in new versions of Quarto
+    url: "https://jacographer.com/"
+    orcid: 0000-0002-3808-9704
+    affiliations:
+      - name: "University of Kentucky"
+citation:
+  url: "https://jacographer.com/"
+knitr:
+  opts_chunk: 
+    message: false
+    warning: false
+    fig-height: 5
+    fig-width: 3
+    fig-align: center
+    cap-location: margin
+execute:
+  freeze: auto  # re-render only when source changes
+format:
+  html:
+    theme: 
+      - flatly
+      - custom.scss
+    toc: true
+    toc-depth: 3
+    toc-location: left #'body' goes into the top of doc
+    toc-title: "Sections"
+    title-block-banner: true
+    #title-block-style: plain
+    backgroundcolor: "green"
+    fontcolor: "purple"
+    include-in-header: google-font.html #file included in final proj.
+    mainfont: Atkinson Hyperlegible
+  docx: default
+  pdf: default
+    #toc: true
+pdf-engine: pdflatex #necessary for this R server.
+---
+
+## Loading Packages
+
+```{r}
+#| eval: false
+install.packages("gt")
+install.packages("htmltools")
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(gt)
+```
+
+## Data
+
+```{r}
+snap <- read_csv("data/snap_political_20.csv")
+```
+
+## Tidying
+
+```{r}
+snap |>
+  filter(
+    CountryCode == "united states",
+    !is.na(Interests),
+    !is.na(`Regions (Included)`)
+  ) |>
+  mutate(
+    STATE_INC = str_split(`Regions (Included)`, ",")
+    ) |>
+  unnest(cols = STATE_INC) -> snap_states
+
+snap_states |>
+  mutate(
+    S_MONTH = month(StartDate, label = TRUE, abbr = TRUE)) -> snap_sm
+
+snap_sm |>
+  mutate(
+    TARGET = str_split(`Interests`, ",")
+    ) |>
+    unnest(cols = TARGET) -> snap_unnest
+```
+
+```{r}
+snap_unnest |>
+  summarise(
+      .by = c(STATE_INC,TARGET,S_MONTH),
+      TOTAL = n()) |>
+  mutate(
+    id = row_number()) -> snap_tidy # all states, interests, and months in separate rows
+
+snap_tidy
+```
+
+## Data Summaries
+
+```{r}
+snap_sm
+```
+
+```{r}
+snap_sm |>
+  group_by(STATE_INC) |>
+  summarise(
+    COUNT = n()) |>
+  arrange(-COUNT) -> state_count
+
+ # count of ads run by state
+```
+
+```{r}
+snap_sm |>
+    filter(
+    STATE_INC == "North Carolina" | STATE_INC == "Arizona" | STATE_INC == "Georgia" | STATE_INC == "Florida" | STATE_INC == "Michigan" | STATE_INC == "Pennsylvania" | STATE_INC == "Wisconsin" | STATE_INC == "Virginia" | STATE_INC == "Maine" | STATE_INC == "Iowa") |>
+  group_by(STATE_INC, S_MONTH)|>
+  summarise(
+    COUNT = n()) |>
+  arrange(-COUNT) -> sm_count
+
+sm_count # count of ads run by state, per month
+```
+
+```{r}
+sm_count |>
+ggplot(aes(x=S_MONTH, y=COUNT))+
+  geom_col()+
+  facet_wrap(~STATE_INC) # volume of ads launching per state
+```
+
+```{r}
+snap_tidy |>
+  group_by(STATE_INC, S_MONTH) |>
+  summarise(TOTAL = sum(TOTAL)) |>
+  arrange(-TOTAL) -> sm_sum # total number of audiences targeted by all ads, per state, per month
+
+sm_sum
+```
+
+```{r}
+snap_tidy |>
+  group_by(TARGET, S_MONTH) |>
+  summarise(
+    SUM = sum(TOTAL)) |>
+  arrange(-SUM) -> tm_sum # total number of ads including a given parameter, per month
+
+tm_sum
+```
+
+```{r}
+snap_tidy |>
+  group_by(TARGET, STATE_INC) |>
+  summarise(
+    SUM = sum(TOTAL)) |>
+  arrange(-SUM) -> ts_sum # total number of ads including a given parameter, per state
+
+ts_sum
+```
+
+## Top Interests by State and Month
+
+```{r}
+snap_tidy |>
+  slice_max(TOTAL, by = c(STATE_INC, S_MONTH)) -> max_list # all top interests per state, per month
+
+max_list
+```
+
+```{r}
+max_list |>
+  group_by(STATE_INC, S_MONTH) |>
+  subset(select = c(STATE_INC, S_MONTH, TARGET)) |>
+    nest(.key = "TOP_TARGET") |>
+  arrange(S_MONTH, STATE_INC) -> top_snap
+
+top_snap # column with list (tibble) of top interests by per state, per month
+```
+
+## Plotting
+
+```{r}
+# month_max |> 
+#   ggplot(aes(S_MONTH, MAX, fill = STATE_INC))+
+#   geom_col()+
+#   theme(legend.position="none") 
+```
+
+```{r}
+#data |>
+#group by (month, state, interest) |>
+#summarise (n == n()) |>
+#filter (n==max(n)) |>
+#select(-month)
+#maxes |>
+#leftjoin(data)
+```
+
+Text analysis of targeting categories, by state.
+
+Unnest both "Regions" and "Interest" fields to get tidy.
+
+#dlxs are oracle datalogix audiences? https://businesshelp.snapchat.com/s/article/custom-audiences?language=en_US
+
+targetsmart and i360: https://www.axios.com/2022/09/08/snap-voter-data-republican-democrats
+
+Geographic Scales:
+
+1.  Region (State)
+    -   Inclusions
+
+    -   Exclusions
+
+    -   Total Ads
+
+    -   Total Spend
+
+    -   Total Impressions
+
+    -   Interests (text analysis)
+2.  Metros (City)
+    -   Inclusions
+
+    -   Exclusions
+
+    -   Total Ads
+
+    -   Total Spend
+
+    -   Total Impressions
+
+    -   Interests (text analysis)
+3.  Postal Codes (Zip)
+    -   Inclusions
+
+    -   Exclusions
+
+    -   Total Ads
+
+    -   Total Spend
+
+    -   Total Impressions
+
+    -   Interests (text analysis)
+4.  Location Categories
+    -   Inclusions
+
+    -   Exclusions
+
+    -   Total Ads
+
+    -   Total Spend
+
+    -   Total Impressions
+
+    -   Interests (text analysis)
+5.  Electoral Districts
+    -   Inclusions
+
+    -   Exclusions
+
+    -   Total Ads
+
+    -   Total Spend
+
+    -   Total Impressions
+
+    -   Interests (text analysis)
